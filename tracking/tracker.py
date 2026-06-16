@@ -6,20 +6,16 @@ Recognition is triggered only on new tracks or re-check intervals.
 """
 
 import time
-import torch
-_original_load = torch.load
-def safe_load(*args, **kwargs):
-    kwargs['weights_only'] = False
-    return _original_load(*args, **kwargs)
-torch.load = safe_load
+import os
 
+os.environ.setdefault("TORCH_FORCE_WEIGHTS_ONLY_LOAD", "0")
+
+import torch
 from ultralytics import YOLO
 
 import sys
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import (RECOGNITION_INTERVAL_FRAMES, TRACK_TIMEOUT_SEC,
-                    RECHECK_INTERVAL_SEC, YOLO_CONF_THRESHOLD)
+from config import (TRACK_TIMEOUT_SEC, RECHECK_INTERVAL_SEC, YOLO_CONF_THRESHOLD)
 
 
 class PersonTracker:

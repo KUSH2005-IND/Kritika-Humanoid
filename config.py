@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ── Model Paths ──────────────────────────────────────────────────────
 YOLO_MODEL_PATH    = "yolov8n.pt"
-SCRFD_MODEL_PATH   = os.path.join(BASE_DIR, "models", "scrfd_500m_bnkps.onnx")
+SCRFD_MODEL_PATH   = os.path.join(BASE_DIR, "models", "det_10g.onnx")
 ARCFACE_MODEL_PATH = os.path.join(BASE_DIR, "models", "arcface_r50.onnx")
 
 # ── Database Paths ───────────────────────────────────────────────────
@@ -19,7 +19,8 @@ UNKNOWN_FACES_DIR  = os.path.join(BASE_DIR, "unknown_faces")
 DB_PATH            = os.path.join(BASE_DIR, "database", "presence.db")
 
 # ── Camera ───────────────────────────────────────────────────────────
-CAMERA_INDEX       = 0
+CAMERA_INDEX       = 1
+CAMERA_BACKEND     = "DSHOW"   # Windows: DSHOW avoids MSMF USB issues
 FRAME_WIDTH        = 640
 FRAME_HEIGHT       = 480
 
@@ -32,7 +33,6 @@ RECHECK_INTERVAL_SEC    = 30.0     # Re-run recognition every N seconds per trac
 YOLO_CONF_THRESHOLD = 0.45
 
 # ── Tracking ─────────────────────────────────────────────────────────
-RECOGNITION_INTERVAL_FRAMES = 5    # Min frames between recognition attempts
 TRACK_TIMEOUT_SEC   = 5.0          # Remove track if unseen for N seconds
 
 # ── Presence ─────────────────────────────────────────────────────────

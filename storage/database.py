@@ -35,30 +35,40 @@ class DatabaseHelper:
             print(f"[Database] Error querying presence today: {e}")
             return []
 
-    def get_session_duration(self, name: str) -> dict:
+    def get_session_duration(self, name: str, date: str = None) -> dict:
         """
-        Returns the duration of the last session for a given person.
-        (Note: based on the IMPLEMENTATION.md example, this calculates based on 'entry' events,
-        but for a more accurate duration, it could be extended to consider 'exit' events too.)
+        Returns entry/exit pairs for the most recent session for a given person.
+        If no exit is recorded (person still present), last_seen = last entry.
         """
-        query = """
-        SELECT
-            MIN(ts) AS arrived,
-            MAX(ts) AS last_seen,
-            (MAX(ts) - MIN(ts)) / 60.0 AS minutes
-        FROM presence_log
-        WHERE name = ? AND event = 'entry';
+        date_filter = f"AND date(ts, 'unixepoch') = '{date}'" if date else ""
+        query = f"""
+        SELECT event, ts FROM presence_log
+        WHERE name = ? {date_filter}
+        ORDER BY ts ASC
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
-                row = conn.execute(query, (name,)).fetchone()
-            if row and row[0] is not None:
-                return {
-                    'arrived': row[0],
-                    'last_seen': row[1],
-                    'minutes': row[2]
-                }
-            return {}
+                rows = conn.execute(query, (name,)).fetchall()
+            if not rows:
+                return {}
+            # Find last entry/exit pair
+            last_entry = None
+            last_exit = None
+            for event, ts in rows:
+                if event == 'entry':
+                    last_entry = ts
+                    last_exit = None   # reset — new session started
+                elif event == 'exit' and last_entry is not None:
+                    last_exit = ts
+            if last_entry is None:
+                return {}
+            end_ts = last_exit if last_exit else last_entry
+            return {
+                'arrived': last_entry,
+                'last_seen': end_ts,
+                'minutes': (end_ts - last_entry) / 60.0,
+                'still_present': last_exit is None
+            }
         except sqlite3.Error as e:
             print(f"[Database] Error querying session duration for {name}: {e}")
             return {}

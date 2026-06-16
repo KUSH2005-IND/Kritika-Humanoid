@@ -16,6 +16,13 @@ class ArcFaceEmbedder:
     """
 
     def __init__(self, model_path: str):
+        from pathlib import Path
+        if not Path(model_path).exists():
+            raise FileNotFoundError(
+                f"[ArcFaceEmbedder] Model not found: {model_path}\n"
+                f"Run 'python setup_models.py' to download models."
+            )
+
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 4
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL

@@ -47,10 +47,11 @@ def download_insightface_models():
             scrfd_candidates = list(insightface_dir.glob("det_*.onnx"))
             if scrfd_candidates:
                 src = scrfd_candidates[0]
-                dst = models_dir / "scrfd_500m_bnkps.onnx"
+                dst = models_dir / src.name
+                config_name = src.name
+                print(f"  ✓ Copying SCRFD model as: {config_name}")
                 if not dst.exists():
                     shutil.copy2(str(src), str(dst))
-                    print(f"  ✓ Copied SCRFD model: {src.name} → {dst.name}")
                 else:
                     print(f"  ✓ SCRFD model already exists: {dst.name}")
             else:

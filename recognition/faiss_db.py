@@ -74,7 +74,8 @@ class FaceDatabase:
         Search top_k, then pick the name with highest cumulative score.
         More robust than single nearest-neighbour for multiple enrolled images.
         """
-        candidates = self.search(query, top_k=top_k)
+        effective_k = min(top_k, max(1, self.index.ntotal // 2))
+        candidates = self.search(query, top_k=effective_k)
         if not candidates:
             return "Unknown", 0.0
 

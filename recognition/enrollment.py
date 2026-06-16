@@ -51,7 +51,7 @@ class EnrollmentPipeline:
             print(f"[Enrollment] No images found in {folder}")
             return 0
 
-        embeddings = []
+        aligned_faces = []
         skipped = 0
 
         for img_path in image_paths:
@@ -84,17 +84,16 @@ class EnrollmentPipeline:
                     continue
                 aligned = cv2.resize(face_crop, (112, 112))
 
-            emb = self.embedder.embed(aligned)
-            embeddings.append(emb)
+            aligned_faces.append(aligned)
 
-        if not embeddings:
+        if not aligned_faces:
             print(f"[Enrollment] No valid faces found for {name}")
             return 0
 
-        emb_matrix = np.vstack(embeddings)
+        emb_matrix = self.embedder.embed_batch(aligned_faces)
         self.db.add_person(name, emb_matrix)
-        print(f"[Enrollment] Enrolled '{name}' with {len(embeddings)} embeddings ({skipped} skipped)")
-        return len(embeddings)
+        print(f"[Enrollment] Enrolled '{name}' with {len(aligned_faces)} embeddings ({skipped} skipped)")
+        return len(aligned_faces)
 
     def enroll_all(self, database_root: str) -> dict:
         """Batch enroll from database/known/ directory structure."""

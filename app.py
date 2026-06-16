@@ -10,6 +10,9 @@ import cv2
 import time
 import sys
 import os
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import platform
 
 # Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -54,6 +57,12 @@ def draw_overlay(frame, all_tracks, presence_list):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Modular Person Recognition System")
+    parser.add_argument("--camera", type=int, default=CAMERA_INDEX, help="Camera index to use")
+    args = parser.parse_args()
+    camera_index = args.camera
+
     print("=" * 60)
     print("  MODULAR PERSON RECOGNITION SYSTEM")
     print("  Target: Intel i7 8th Gen CPU · No GPU")
@@ -90,6 +99,37 @@ def main():
     print("[App] All modules loaded successfully.")
     print()
 
+    executor = ThreadPoolExecutor(max_workers=2)
+
+    def recognise_track(track, face_detector, embedder, db, identity_engine, unknown_handler, tracker):
+        crop = track['crop']
+        track_id = track['track_id']
+        faces = face_detector.detect(crop)
+        if not faces:
+            tracker.update_track_identity(track_id, 'Unknown', 0.0)
+            return None
+        best_face = max(faces, key=lambda d: d['score'])
+        if 'landmarks' in best_face:
+            aligned = SCRFDDetector.align_face(crop, best_face['landmarks'])
+        else:
+            x1, y1, x2, y2 = best_face['bbox']
+            ch, cw = crop.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(cw, x2), min(ch, y2)
+            face_region = crop[y1:y2, x1:x2]
+            if face_region.size == 0:
+                tracker.update_track_identity(track_id, 'Unknown', 0.0)
+                return None
+            aligned = cv2.resize(face_region, (112, 112))
+        query_emb = embedder.embed(aligned)
+        name, score = db.majority_vote_search(query_emb, top_k=7)
+        decision = identity_engine.decide(name, score)
+        tracker.update_track_identity(track_id, decision['identity'], decision['score'])
+        if not decision['is_known']:
+            unknown_handler.save(aligned, track_id=track_id)
+            return None
+        return decision['identity']
+
     # ── Optional: first-run enrollment ──────────────────────────────
     if db.index.ntotal == 0:
         print("[App] No enrolled persons found. Running enrollment...")
@@ -104,10 +144,13 @@ def main():
         print(f"[App] Enrolled: {db.enrolled_names}")
 
     # ── Camera loop ─────────────────────────────────────────────────
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    if platform.system() == "Windows":
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
-        print(f"[App] ERROR: Cannot open camera (index={CAMERA_INDEX})")
-        print("[App] Check camera connection and CAMERA_INDEX in config.py")
+        print(f"[App] ERROR: Cannot open camera (index={camera_index})")
+        print("[App] Check camera connection and CAMERA_INDEX in config.py or pass --camera <index>")
         return
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
@@ -135,45 +178,12 @@ def main():
             tracks_to_recognise, all_tracks = tracker.update(frame)
 
             # ── Recognise flagged tracks ─────────────────────────────────
-            current_identities = []
-            for track in tracks_to_recognise:
-                crop = track['crop']
-                track_id = track['track_id']
-
-                # Detect face within person crop
-                faces = face_detector.detect(crop)
-                if not faces:
-                    tracker.update_track_identity(track_id, 'Unknown', 0.0)
-                    continue
-
-                best_face = max(faces, key=lambda d: d['score'])
-
-                # Align face for embedding
-                if 'landmarks' in best_face:
-                    aligned = SCRFDDetector.align_face(crop, best_face['landmarks'])
-                else:
-                    x1, y1, x2, y2 = best_face['bbox']
-                    # Clamp to crop boundaries
-                    ch, cw = crop.shape[:2]
-                    x1, y1 = max(0, x1), max(0, y1)
-                    x2, y2 = min(cw, x2), min(ch, y2)
-                    face_region = crop[y1:y2, x1:x2]
-                    if face_region.size == 0:
-                        tracker.update_track_identity(track_id, 'Unknown', 0.0)
-                        continue
-                    aligned = cv2.resize(face_region, (112, 112))
-
-                # Generate embedding and search
-                query_emb = embedder.embed(aligned)
-                name, score = db.majority_vote_search(query_emb, top_k=7)
-                decision = identity_engine.decide(name, score)
-
-                tracker.update_track_identity(track_id, decision['identity'], decision['score'])
-
-                if not decision['is_known']:
-                    unknown_handler.save(aligned)
-                else:
-                    current_identities.append(decision['identity'])
+            futures = [
+                executor.submit(recognise_track, track, face_detector, embedder,
+                                db, identity_engine, unknown_handler, tracker)
+                for track in tracks_to_recognise
+            ]
+            current_identities = [f.result() for f in futures if f.result() is not None]
 
             # ── Also collect identities from cached tracks ────────────────
             for track in all_tracks:

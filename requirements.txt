@@ -1,7 +1,7 @@
 # Requirements for Modular Person Recognition System
 # Target: Intel i7 8th Gen CPU · No GPU
 
-ultralytics==8.2.0
+ultralytics>=8.3.0
 onnxruntime==1.18.0
 faiss-cpu==1.8.0
 opencv-python==4.10.0.84

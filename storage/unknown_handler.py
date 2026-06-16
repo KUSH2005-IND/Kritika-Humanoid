@@ -26,10 +26,10 @@ class UnknownFaceHandler:
     def __init__(self, save_dir=UNKNOWN_FACES_DIR):
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        self._last_saved: float = 0.0
+        self._last_saved: dict[int, float] = {}   # track_id → timestamp
         self._counter = 0
 
-    def save(self, face_crop) -> str | None:
+    def save(self, face_crop, track_id: int = -1) -> str | None:
         """
         Save a face crop if enough time has passed since last save.
         Returns the file path if saved, None otherwise.
@@ -38,17 +38,17 @@ class UnknownFaceHandler:
             return None
 
         now = time.time()
-        if now - self._last_saved < self.MIN_INTERVAL_SEC:
+        if now - self._last_saved.get(track_id, 0.0) < self.MIN_INTERVAL_SEC:
             return None
 
         self._counter += 1
         ts = time.strftime("%Y%m%d_%H%M%S")
-        filename = f"unknown_{ts}_{self._counter:04d}.jpg"
+        filename = f"unknown_{ts}_t{track_id}_{self._counter:04d}.jpg"
         save_path = self.save_dir / filename
 
         try:
             cv2.imwrite(str(save_path), face_crop)
-            self._last_saved = now
+            self._last_saved[track_id] = now
             print(f"[Unknown] Saved unknown face: {filename}")
             return str(save_path)
         except Exception as e:
