@@ -1,0 +1,26 @@
+# Environment and Cache
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Models (too large for git)
+models/
+yolov8n.pt
+*.onnx
+
+# Databases and Local Storage (ignore data, but keep folder structure if needed)
+database/
+unknown_faces/
+*.db
+*.bin
+*.pkl
+
+# Log files
+*.log
