@@ -12,6 +12,35 @@ from recognition.face_detector import SCRFDDetector
 from recognition.embedder import ArcFaceEmbedder
 from recognition.faiss_db import FaceDatabase
 
+from PIL import Image, ExifTags
+def _read_image_exif_aware(path: str) -> np.ndarray | None:
+    """
+    Reads image and applies EXIF rotation correction.
+    cv2.imread ignores EXIF orientation — phone photos arrive rotated without this.
+    """
+    try:
+        pil_img = Image.open(path)
+
+        # Apply EXIF orientation if present
+        exif = pil_img._getexif()
+        if exif:
+            orientation_key = next(
+                (k for k, v in ExifTags.TAGS.items() if v == 'Orientation'), None
+            )
+            if orientation_key and orientation_key in exif:
+                orientation = exif[orientation_key]
+                rotation_map = {3: 180, 6: 270, 8: 90}
+                if orientation in rotation_map:
+                    pil_img = pil_img.rotate(rotation_map[orientation], expand=True)
+
+        # Convert to BGR for OpenCV pipeline
+        img = cv2.cvtColor(np.array(pil_img.convert('RGB')), cv2.COLOR_RGB2BGR)
+        return img
+
+    except Exception as e:
+        print(f"[Enrollment] Image read error for {path}: {e}")
+        return None
+
 
 class EnrollmentPipeline:
     """
@@ -55,7 +84,7 @@ class EnrollmentPipeline:
         skipped = 0
 
         for img_path in image_paths:
-            img = cv2.imread(str(img_path))
+            img = _read_image_exif_aware(str(img_path))
             if img is None:
                 print(f"[Enrollment] Could not read {img_path.name}, skipping")
                 skipped += 1

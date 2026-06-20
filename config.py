@@ -31,6 +31,8 @@ RECHECK_INTERVAL_SEC    = 30.0     # Re-run recognition every N seconds per trac
 
 # ── Detection ────────────────────────────────────────────────────────
 YOLO_CONF_THRESHOLD = 0.45
+SCRFD_INPUT_SIZE = (480, 480)  # 480 catches large faces (phone/webcam), # 640 used as fallback for small/distant faces
+SCRFD_CONF_THRESHOLD = 0.35
 
 # ── Tracking ─────────────────────────────────────────────────────────
 TRACK_TIMEOUT_SEC   = 5.0          # Remove track if unseen for N seconds
